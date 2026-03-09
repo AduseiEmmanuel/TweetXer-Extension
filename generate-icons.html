@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TweetXer Icon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #1DA1F2; }
+        .icon-preview {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            align-items: flex-end;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            background: #1DA1F2;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0d8ecf;
+        }
+        .instructions {
+            background: #e8f5fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ TweetXer Icon Generator</h1>
+        <p>Click the buttons below to download the icons, then save them to the <code>icons</code> folder.</p>
+        
+        <div class="icon-preview">
+            <div>
+                <canvas id="icon16" width="16" height="16"></canvas>
+                <p>16x16</p>
+            </div>
+            <div>
+                <canvas id="icon48" width="48" height="48"></canvas>
+                <p>48x48</p>
+            </div>
+            <div>
+                <canvas id="icon128" width="128" height="128"></canvas>
+                <p>128x128</p>
+            </div>
+        </div>
+        
+        <button onclick="downloadIcon(16)">Download icon16.png</button>
+        <button onclick="downloadIcon(48)">Download icon48.png</button>
+        <button onclick="downloadIcon(128)">Download icon128.png</button>
+        <button onclick="downloadAll()">Download All</button>
+
+        <div class="instructions">
+            <strong>Instructions:</strong>
+            <ol>
+                <li>Click each download button or "Download All"</li>
+                <li>Save the files to: <code>TweetXer-Extension/icons/</code></li>
+                <li>Reload the extension in Chrome</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            
+            // Background circle
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+            ctx.fillStyle = '#1DA1F2';
+            ctx.fill();
+            
+            // Trash can icon
+            const scale = size / 128;
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 4 * scale;
+            ctx.lineCap = 'round';
+            
+            // Trash can body
+            const bodyX = 35 * scale;
+            const bodyY = 45 * scale;
+            const bodyW = 58 * scale;
+            const bodyH = 55 * scale;
+            
+            ctx.beginPath();
+            ctx.roundRect(bodyX, bodyY, bodyW, bodyH, 8 * scale);
+            ctx.fill();
+            
+            // Trash can lid
+            ctx.beginPath();
+            ctx.roundRect(30 * scale, 35 * scale, 68 * scale, 12 * scale, 4 * scale);
+            ctx.fill();
+            
+            // Handle
+            ctx.beginPath();
+            ctx.roundRect(50 * scale, 25 * scale, 28 * scale, 14 * scale, 6 * scale);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 4 * scale;
+            ctx.stroke();
+            
+            // Vertical lines on trash can (in blue)
+            ctx.strokeStyle = '#1DA1F2';
+            ctx.lineWidth = 3 * scale;
+            
+            ctx.beginPath();
+            ctx.moveTo(50 * scale, 55 * scale);
+            ctx.lineTo(50 * scale, 90 * scale);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(64 * scale, 55 * scale);
+            ctx.lineTo(64 * scale, 90 * scale);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(78 * scale, 55 * scale);
+            ctx.lineTo(78 * scale, 90 * scale);
+            ctx.stroke();
+        }
+        
+        // Draw all icons on load
+        [16, 48, 128].forEach(size => {
+            const canvas = document.getElementById('icon' + size);
+            drawIcon(canvas, size);
+        });
+        
+        function downloadIcon(size) {
+            const canvas = document.getElementById('icon' + size);
+            const link = document.createElement('a');
+            link.download = `icon${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        function downloadAll() {
+            [16, 48, 128].forEach((size, i) => {
+                setTimeout(() => downloadIcon(size), i * 500);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            width: 320px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1DA1F2 0%, #0d8ecf 100%);
+            color: white;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .status {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .status-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .status-text {
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .features {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .features h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .features ul {
+            list-style: none;
+            font-size: 12px;
+        }
+        .features li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #69f0ae;
+        }
+        .instructions {
+            font-size: 11px;
+            text-align: center;
+            opacity: 0.8;
+            line-height: 1.5;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            background: white;
+            color: #1DA1F2;
+            border: none;
+            border-radius: 25px;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .footer {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 10px;
+            opacity: 0.6;
+        }
+        .footer a {
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗑️ TweetXer</h1>
+        <p>Delete all your Tweets for free</p>
+    </div>
+
+    <button class="btn" id="openTwitter">Open X/Twitter</button>
+
+    <div class="status">
+        <div class="status-title">📋 How to use:</div>
+        <div class="status-text">
+            1. Go to x.com and log in<br>
+            2. Navigate to your profile<br>
+            3. The TweetXer panel appears at the top<br>
+            4. Upload your data export file to delete tweets
+        </div>
+    </div>
+
+    <div class="features">
+        <h3>✨ Features</h3>
+        <ul>
+            <li>Delete all tweets (fast with data export)</li>
+            <li>Delete likes/favorites</li>
+            <li>Delete direct messages</li>
+            <li>Export bookmarks</li>
+            <li>Unfollow everyone</li>
+            <li>Slow delete without export file</li>
+        </ul>
+    </div>
+
+    <div class="instructions">
+        Get your data export from<br>
+        <strong>Settings → Your Account → Download Archive</strong>
+    </div>
+
+    <div class="footer">
+        <a href="https://github.com/lucahammer/tweetXer/" target="_blank">Original</a> • 
+        Chrome Ext by HOPESON • v1.0.0
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

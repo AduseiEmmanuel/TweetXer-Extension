@@ -1,0 +1,703 @@
+// TweetXer Content Script - Chrome Extension Version
+// Chrome Extension by: HOPESON
+// Based on TweetXer userscript by Luca, dbort, pReya, Micolithe, STrRedWolf
+// Original: https://github.com/lucahammer/tweetXer/
+
+(function () {
+    let TweetsXer = {
+        version: '1.0.0',
+        TweetCount: 0,
+        dId: "exportUpload",
+        tIds: [],
+        tId: "",
+        ratelimitreset: 0,
+        more: '[data-testid="tweet"] [data-testid="caret"]',
+        skip: 0,
+        total: 0,
+        dCount: 0,
+        deleteURL: '/i/api/graphql/VaenaVgh5q5ih7kvyVjgtg/DeleteTweet',
+        unfavURL: '/i/api/graphql/ZYKSe-w7KEslx3JhSIk5LA/UnfavoriteTweet',
+        deleteMessageURL: '/i/api/graphql/BJ6DtxA2llfjnRoRjaiIiw/DMMessageDeleteMutation',
+        deleteConvoURL: '/i/api/1.1/dm/conversation/USER_ID-CONVERSATION_ID/delete.json',
+        deleteDMsOneByOne: false,
+        username: '',
+        action: '',
+        bookmarksURL: '/i/api/graphql/L7vvM2UluPgWOW4GDvWyvw/Bookmarks?',
+        bookmarks: [],
+        bookmarksNext: '',
+        baseUrl: 'https://x.com',
+        authorization: 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+        ct0: false,
+        transaction_id: '',
+
+        async init() {
+            this.baseUrl = `https://${window.location.hostname}`
+            this.updateTransactionId()
+            this.createUploadForm()
+            await this.getTweetCount()
+            this.ct0 = this.getCookie('ct0')
+            this.username = document.location.href.split('/')[3].replace('#', '')
+        },
+
+        sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms))
+        },
+
+        getCookie(name) {
+            const match = `; ${document.cookie}`.match(`;\\s*${name}=([^;]+)`)
+            return match ? match[1] : null
+        },
+
+        updateTransactionId() {
+            this.transaction_id = [...crypto.getRandomValues(new Uint8Array(95))]
+                .map((x, i) => (i = x / 255 * 61 | 0, String.fromCharCode(i + (i > 9 ? i > 35 ? 61 : 55 : 48)))).join``
+        },
+
+        updateTitle(text) {
+            const titleEl = document.getElementById('tweetsXer_title')
+            if (titleEl) titleEl.textContent = text
+        },
+
+        updateInfo(text) {
+            const infoEl = document.getElementById("info")
+            if (infoEl) infoEl.textContent = text
+        },
+
+        createProgressBar() {
+            const progressbar = document.createElement("progress")
+            progressbar.id = "progressbar"
+            progressbar.value = this.dCount
+            progressbar.max = this.total
+            progressbar.style = 'width:100%'
+
+            const container = document.getElementById(this.dId)
+            if (container) container.appendChild(progressbar)
+        },
+
+        updateProgressBar() {
+            const progressEl = document.getElementById('progressbar')
+            if (progressEl) progressEl.value = this.dCount
+            this.updateInfo(`${this.dCount} deleted. ${this.tId}`)
+        },
+
+        processFile() {
+            const tn = document.getElementById(`${TweetsXer.dId}_file`)
+            if (tn.files && tn.files[0]) {
+                let fr = new FileReader()
+                fr.onloadend = function (evt) {
+                    let cutpoint = evt.target.result.indexOf('= ')
+                    let filestart = evt.target.result.slice(0, cutpoint)
+                    let json = JSON.parse(evt.target.result.slice(cutpoint + 1))
+
+                    if (filestart.includes('.tweet_headers.')) {
+                        console.log('File contains Tweets.')
+                        TweetsXer.action = 'untweet'
+                        TweetsXer.tIds = json.map((x) => x.tweet.tweet_id)
+                    } else if (filestart.includes('.tweets.') || filestart.includes('.tweet.')) {
+                        console.log('File contains Tweets.')
+                        TweetsXer.action = 'untweet'
+                        TweetsXer.tIds = json.map((x) => x.tweet.id_str)
+                    } else if (filestart.includes('.like.')) {
+                        console.log('File contains Favs.')
+                        TweetsXer.action = 'unfav'
+                        TweetsXer.tIds = json.map((x) => x.like.tweetId)
+                    }
+                    else if (
+                        filestart.includes('.direct_message_headers.')
+                        || filestart.includes('.direct_message_group_headers.')
+                        || filestart.includes('.direct_messages.')
+                        || filestart.includes('.direct_message_groups.')) {
+                        console.log('File contains Direct Messages.')
+                        TweetsXer.action = 'undm'
+                        if (this.deleteDMsOneByOne) {
+                            TweetsXer.tIds = json.map((c) => c.dmConversation.messages.map((m) => m.messageCreate ? m.messageCreate.id : 0))
+                            TweetsXer.tIds = TweetsXer.tIds.flat()
+                            TweetsXer.tIds = TweetsXer.tIds.filter((i) => i != 0)
+                        }
+                        else {
+                            TweetsXer.tIds = json.map((c) => c.dmConversation.conversationId)
+                        }
+
+                    } else {
+                        TweetsXer.updateInfo('File content not recognized. Please use a file from the Twitter data export.')
+                        console.log('File content not recognized. Please use a file from the Twitter data export.')
+                    }
+
+                    if (TweetsXer.action.length > 0) {
+                        TweetsXer.total = TweetsXer.tIds.length
+                        document.getElementById(`${TweetsXer.dId}_file`).remove()
+                        TweetsXer.createProgressBar()
+                    }
+
+                    if (TweetsXer.action == 'untweet') {
+                        if (document.getElementById('skipCount').value.length < 1) {
+                            TweetsXer.skip = TweetsXer.total - TweetsXer.TweetCount - parseInt(TweetsXer.total / 20)
+                            TweetsXer.skip = Math.max(0, TweetsXer.skip)
+                        }
+                        else {
+                            TweetsXer.skip = document.getElementById('skipCount').value
+                        }
+                        console.log(`Skipping oldest ${TweetsXer.skip} Tweets.`)
+                        TweetsXer.tIds.reverse()
+                        TweetsXer.tIds = TweetsXer.tIds.slice(TweetsXer.skip)
+                        TweetsXer.dCount = TweetsXer.skip
+                        TweetsXer.tIds.reverse()
+                        TweetsXer.updateTitle(`TweetXer: Deleting ${TweetsXer.total} Tweets`)
+
+                        TweetsXer.deleteTweets()
+                    } else if (TweetsXer.action == 'unfav') {
+                        TweetsXer.skip = document.getElementById('skipCount').value.length > 0 ? document.getElementById('skipCount').value : 0
+                        console.log(`Skipping oldest ${TweetsXer.skip} Tweets`)
+                        TweetsXer.tIds = TweetsXer.tIds.slice(TweetsXer.skip)
+                        TweetsXer.dCount = TweetsXer.skip
+                        TweetsXer.tIds.reverse()
+                        TweetsXer.updateTitle(`TweetXer: Deleting ${TweetsXer.total} Favs`)
+                        TweetsXer.deleteFavs()
+                    } else if (TweetsXer.action == 'undm') {
+                        TweetsXer.skip = document.getElementById('skipCount').value.length > 0 ? document.getElementById('skipCount').value : 0
+                        console.log(`Skipping ${TweetsXer.skip} messages/convos`)
+                        TweetsXer.tIds = TweetsXer.tIds.slice(TweetsXer.skip)
+                        TweetsXer.dCount = TweetsXer.skip
+                        TweetsXer.tIds.reverse()
+                        if (this.deleteDMsOneByOne) {
+                            TweetsXer.updateTitle(`TweetXer: Deleting ${TweetsXer.total} DMs`)
+                            TweetsXer.deleteDMs()
+                        }
+                        else {
+                            TweetsXer.updateTitle(`TweetXer: Deleting ${TweetsXer.total} DM Conversations`)
+                            TweetsXer.deleteConvos()
+                        }
+
+                    }
+                    else {
+                        TweetsXer.updateTitle(`TweetXer: Please try a different file`)
+                    }
+
+                }
+                fr.readAsText(tn.files[0])
+            }
+        },
+
+        createUploadForm() {
+            const h2Class = document.querySelectorAll("h2")[1]?.getAttribute("class") || ""
+            const div = document.createElement("div")
+            div.id = this.dId
+            if (document.getElementById(this.dId)) { document.getElementById(this.dId).remove() }
+            div.innerHTML = `
+            <style>
+                #${this.dId} { 
+                    z-index: 99999; 
+                    position: sticky; 
+                    top: 0px; 
+                    left: 0px; 
+                    width: auto; 
+                    margin: 0 auto; 
+                    padding: 20px 10%; 
+                    background: linear-gradient(135deg, #1DA1F2 0%, #0d8ecf 100%);
+                    opacity: 0.98;
+                    border-bottom: 3px solid #0d7abf;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                } 
+                #${this.dId} > * { padding: 5px; } 
+                #${this.dId} button {
+                    background-color: #fff;
+                    color: #1DA1F2;
+                    border: none;
+                    border-radius: 25px;
+                    padding: 8px 20px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                } 
+                #${this.dId} button:hover {
+                    background-color: #1DA1F2;
+                    color: #fff;
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                }
+                #${this.dId} a { color: #fff; text-decoration: underline; }
+                #${this.dId} a:hover { color: #e8f5fd; }
+                #${this.dId} input[type="file"] {
+                    background: #fff;
+                    padding: 10px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                }
+                #${this.dId} input[type="number"] {
+                    padding: 8px;
+                    border-radius: 8px;
+                    border: none;
+                    width: 100px;
+                }
+                #${this.dId} progress {
+                    height: 25px;
+                    border-radius: 12px;
+                    overflow: hidden;
+                }
+                #${this.dId} progress::-webkit-progress-bar {
+                    background-color: rgba(255,255,255,0.3);
+                    border-radius: 12px;
+                }
+                #${this.dId} progress::-webkit-progress-value {
+                    background: linear-gradient(90deg, #00c853 0%, #69f0ae 100%);
+                    border-radius: 12px;
+                }
+                #${this.dId} ul { margin: 10px 0; padding-left: 20px; }
+                #${this.dId} li { margin: 5px 0; }
+            </style>
+            <div style="color: white">
+                <h2 class="${h2Class}" id="tweetsXer_title" style="font-size: 24px; margin-bottom: 10px;">🗑️ TweetXer</h2>
+                <p id="info" style="font-size: 14px; margin-bottom: 15px;">Please wait for your profile to load...</p>
+                <p id="start">
+                    <input type="file" value="" id="${this.dId}_file" accept=".js" />
+                    <a href="#" id="toggleAdvanced" style="margin-left: 15px;">⚙️ Advanced Options</a>
+                </p>
+                <div id="advanced" style="display:none; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; margin-top: 15px;">
+                    <label for="skipCount" style="display: block; margin-bottom: 5px;">Skip count:</label>
+                    <input id="skipCount" type="number" value="" placeholder="0" />
+                    <p style="margin-top: 15px;"><strong>📁 Supported files:</strong></p>
+                    <ul>
+                        <li>tweet-headers.js - Delete Tweets (10,000 - 20,000 per hour)</li>
+                        <li>direct-message-header.js - Delete DMs (~800 per 15 min)</li>
+                        <li>like.js - Delete Likes (~500 per 15 min)</li>
+                    </ul>
+                    <p style="margin-top: 15px;"><strong>📚 Export Bookmarks</strong><br>
+                        <span style="font-size: 12px;">Bookmarks aren't in the official export.</span><br>
+                        <button id="exportBookmarks" type="button" style="margin-top: 5px;">Export Bookmarks</button>
+                    </p>
+                    <p style="margin-top: 15px;"><strong>🐢 Slow Delete</strong><br>
+                        <span style="font-size: 12px;">No data export? Use this slower method (~4000/hour).</span><br>
+                        <button id="slowDelete" type="button" style="margin-top: 5px;">Slow Delete</button>
+                    </p>
+                    <p style="margin-top: 15px;"><strong>👋 Unfollow Everyone</strong><br>
+                        <span style="font-size: 12px;">Fresh start - unfollow all accounts.</span><br>
+                        <button id="unfollowEveryone" type="button" style="margin-top: 5px;">Unfollow All</button>
+                    </p>
+                    <p style="margin-top: 15px;">
+                        <a id="removeTweetXer" href="#">❌ Remove TweetXer</a>
+                        <span style="float: right; font-size: 11px; opacity: 0.7;">v${TweetsXer.version}</span>
+                    </p>
+                </div>
+            </div>
+            `
+            document.body.insertBefore(div, document.body.firstChild)
+            document.getElementById("toggleAdvanced").addEventListener("click", (e) => {
+                e.preventDefault()
+                const adv = document.getElementById('advanced')
+                adv.style.display = adv.style.display === 'none' ? 'block' : 'none'
+            })
+            document.getElementById(`${this.dId}_file`).addEventListener("change", this.processFile, false)
+            document.getElementById("exportBookmarks").addEventListener("click", this.exportBookmarks, false)
+            document.getElementById("slowDelete").addEventListener("click", this.slowDelete, false)
+            document.getElementById("unfollowEveryone").addEventListener("click", this.unfollow, false)
+            document.getElementById("removeTweetXer").addEventListener("click", this.removeTweetXer, false)
+        },
+
+        async exportBookmarks() {
+            TweetsXer.updateTitle('TweetXer: Exporting bookmarks')
+            let variables = ''
+            while (TweetsXer.bookmarksNext.length > 0 || TweetsXer.bookmarks.length == 0) {
+                if (TweetsXer.bookmarksNext.length > 0) {
+                    variables = `{"count":20,"cursor":"${TweetsXer.bookmarksNext}","includePromotedContent":false}`
+                } else variables = '{"count":20,"includePromotedContent":false}'
+                let response = await fetch(TweetsXer.baseUrl + TweetsXer.bookmarksURL + new URLSearchParams({
+                    variables: variables,
+                    features: '{"graphql_timeline_v2_bookmark_timeline":true,"rweb_tipjar_consumption_enabled":true,"responsive_web_graphql_exclude_directive_enabled":true,"verified_phone_label_enabled":false,"creator_subscriptions_tweet_preview_api_enabled":true,"responsive_web_graphql_timeline_navigation_enabled":true,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":false,"communities_web_enable_tweet_community_results_fetch":true,"c9s_tweet_anatomy_moderator_badge_enabled":true,"articles_preview_enabled":true,"responsive_web_edit_tweet_api_enabled":true,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":true,"view_counts_everywhere_api_enabled":true,"longform_notetweets_consumption_enabled":true,"responsive_web_twitter_article_tweet_consumption_enabled":true,"tweet_awards_web_tipping_enabled":false,"creator_subscriptions_quote_tweet_preview_enabled":false,"freedom_of_speech_not_reach_fetch_enabled":true,"standardized_nudges_misinfo":true,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":true,"rweb_video_timestamps_enabled":true,"longform_notetweets_rich_text_read_enabled":true,"longform_notetweets_inline_media_enabled":true,"responsive_web_enhance_cards_enabled":false}'
+                }), {
+                    "headers": {
+                        "authorization": TweetsXer.authorization,
+                        "content-type": "application/json",
+                        "x-client-transaction-id": TweetsXer.transaction_id,
+                        "x-csrf-token": TweetsXer.ct0,
+                        "x-twitter-active-user": "yes",
+                        "x-twitter-auth-type": "OAuth2Session",
+                    },
+                    "referrer": `${TweetsXer.baseUrl}/i/bookmarks`,
+                    "referrerPolicy": "strict-origin-when-cross-origin",
+                    "method": "GET",
+                    "mode": "cors",
+                    "credentials": "include"
+                })
+
+                if (response.status == 200) {
+                    let data = await response.json()
+                    data.data.bookmark_timeline_v2.timeline.instructions[0].entries.forEach((item) => {
+                        if (item.entryId.includes('tweet')) {
+                            TweetsXer.dCount++
+                            TweetsXer.bookmarks.push(item.content.itemContent.tweet_results.result)
+                        } else if (item.entryId.includes('cursor-bottom')) {
+                            if (TweetsXer.bookmarksNext != item.content.value) {
+                                TweetsXer.bookmarksNext = item.content.value
+                            } else {
+                                TweetsXer.bookmarksNext = ''
+                            }
+                        }
+                    })
+                    TweetsXer.updateInfo(`${TweetsXer.dCount} Bookmarks collected`)
+                } else {
+                    console.log(response)
+                }
+
+                if (!response.headers.get('x-rate-limit-remaining') && response.headers.get('x-rate-limit-remaining') < 1) {
+                    console.log('rate limit hit')
+                    TweetsXer.ratelimitreset = response.headers.get('x-rate-limit-reset')
+                    let sleeptime = TweetsXer.ratelimitreset - Math.floor(Date.now() / 1000)
+                    while (sleeptime > 0) {
+                        sleeptime = TweetsXer.ratelimitreset - Math.floor(Date.now() / 1000)
+                        TweetsXer.updateInfo(`Ratelimited. Waiting ${sleeptime} seconds. ${TweetsXer.dCount} deleted.`)
+                        await TweetsXer.sleep(1000)
+                    }
+                }
+            }
+            let download = new Blob([JSON.stringify(TweetsXer.bookmarks)], { type: 'text/plain' })
+            let bookmarksDownload = document.createElement("a")
+            bookmarksDownload.id = 'bookmarksDownload'
+            bookmarksDownload.innerText = '📥 Download bookmarks'
+            bookmarksDownload.href = window.URL.createObjectURL(download)
+            bookmarksDownload.download = 'twitter-bookmarks.json'
+            bookmarksDownload.style = 'display: block; margin-top: 10px; background: #fff; color: #1DA1F2; padding: 10px; border-radius: 8px; text-decoration: none; text-align: center;'
+            document.getElementById('advanced').appendChild(bookmarksDownload)
+            TweetsXer.updateTitle('🗑️ TweetXer')
+        },
+
+        async sendRequest(
+            url,
+            body = `{\"variables\":{\"tweet_id\":\"${TweetsXer.tId}\",\"dark_request\":false},\"queryId\":\"${url.split('/')[6]}\"}`
+        ) {
+            return new Promise(async (resolve) => {
+                try {
+                    let response = await fetch(url, {
+                        "headers": {
+                            "authorization": TweetsXer.authorization,
+                            "content-type": "application/json",
+                            "x-client-transaction-id": TweetsXer.transaction_id,
+                            "x-csrf-token": TweetsXer.ct0,
+                            "x-twitter-active-user": "yes",
+                            "x-twitter-auth-type": "OAuth2Session"
+                        },
+                        "referrer": `${TweetsXer.baseUrl}/${TweetsXer.username}/with_replies`,
+                        "referrerPolicy": "strict-origin-when-cross-origin",
+                        "body": body,
+                        "method": "POST",
+                        "mode": "cors",
+                        "credentials": "include",
+                        "signal": AbortSignal.timeout(5000)
+                    })
+
+                    if (response.status == 200) {
+                        TweetsXer.dCount++
+                        TweetsXer.updateProgressBar()
+
+                        if (response.headers.get('x-rate-limit-remaining') != null && response.headers.get('x-rate-limit-remaining') < 1) {
+                            console.log('rate limit hit')
+                            TweetsXer.ratelimitreset = response.headers.get('x-rate-limit-reset')
+                            let sleeptime = TweetsXer.ratelimitreset - Math.floor(Date.now() / 1000)
+                            while (sleeptime > 0) {
+                                sleeptime = TweetsXer.ratelimitreset - Math.floor(Date.now() / 1000)
+                                TweetsXer.updateInfo(`Ratelimited. Waiting ${sleeptime} seconds. ${TweetsXer.dCount} deleted.`)
+                                await TweetsXer.sleep(1000)
+                            }
+                            resolve('deleted and waiting')
+                        }
+                        else {
+                            resolve('deleted')
+                        }
+                    }
+                    else if (response.status == 429) {
+                        TweetsXer.tIds.push(TweetsXer.tId)
+                        console.log('Received status code 429. Waiting for 1 second before trying again.')
+                        await TweetsXer.sleep(1000)
+                    }
+                    else {
+                        console.log(response)
+                    }
+
+                } catch (error) {
+                    if (error.Name === 'AbortError') {
+                        TweetsXer.tIds.push(TweetsXer.tId)
+                        console.log('Request timeout.')
+                        let sleeptime = 15
+                        while (sleeptime > 0) {
+                            sleeptime--
+                            TweetsXer.updateInfo(`Ratelimited. Waiting ${sleeptime} seconds. ${TweetsXer.dCount} deleted.`)
+                            await TweetsXer.sleep(1000)
+                        }
+                        resolve('error')
+                    }
+                }
+            })
+        },
+
+        async deleteTweets() {
+            while (this.tIds.length > 0) {
+                this.tId = this.tIds.pop()
+                await this.sendRequest(this.baseUrl + this.deleteURL)
+            }
+            this.tId = ''
+            this.updateProgressBar()
+        },
+
+        async deleteFavs() {
+            this.updateTitle('TweetXer: Deleting Favs')
+
+            while (this.tIds.length > 0) {
+                this.tId = this.tIds.pop()
+                await this.sendRequest(this.baseUrl + this.unfavURL)
+            }
+            this.tId = ''
+            this.updateTitle('🗑️ TweetXer')
+            this.updateProgressBar()
+        },
+
+        async deleteDMs() {
+            while (this.tIds.length > 0) {
+                this.tId = this.tIds.pop()
+                await this.sendRequest(
+                    this.baseUrl + this.deleteMessageURL,
+                    `{\"variables\":{\"messageId\":\"${this.tId}\"},\"requestId\":\"\"}`
+                )
+            }
+            this.tId = ''
+            this.updateProgressBar()
+        },
+
+        async deleteConvos() {
+            while (this.tIds.length > 0) {
+                this.tId = this.tIds.pop()
+                let url = this.baseUrl + this.deleteConvoURL.replace('USER_ID-CONVERSATION_ID', this.tId)
+                let response = await fetch(url, {
+                    "headers": {
+                        "authorization": TweetsXer.authorization,
+                        "content-type": "application/x-www-form-urlencoded",
+                        "x-client-transaction-id": TweetsXer.transaction_id,
+                        "x-csrf-token": TweetsXer.ct0,
+                        "x-twitter-active-user": "yes",
+                        "x-twitter-auth-type": "OAuth2Session"
+                    },
+                    "referrer": `${TweetsXer.baseUrl}/messages`,
+                    "body": 'dm_secret_conversations_enabled=false&krs_registration_enabled=true&cards_platform=Web-12&include_cards=1&include_ext_alt_text=true&include_ext_limited_action_results=true&include_quote_count=true&include_reply_count=1&tweet_mode=extended&include_ext_views=true&dm_users=false&include_groups=true&include_inbox_timelines=true&include_ext_media_color=true&supports_reactions=true&supports_edit=true&include_conversation_info=true',
+                    "method": "POST",
+                    "mode": "cors",
+                    "credentials": "include",
+                    "signal": AbortSignal.timeout(5000)
+                })
+
+                if (response.status == 204) {
+                    TweetsXer.dCount++
+                    TweetsXer.updateProgressBar()
+
+                    if (response.headers.get('x-rate-limit-remaining') != null && response.headers.get('x-rate-limit-remaining') < 1) {
+                        console.log('rate limit hit')
+                        TweetsXer.ratelimitreset = response.headers.get('x-rate-limit-reset')
+                        let sleeptime = TweetsXer.ratelimitreset - Math.floor(Date.now() / 1000)
+                        while (sleeptime > 0) {
+                            sleeptime = TweetsXer.ratelimitreset - Math.floor(Date.now() / 1000)
+                            TweetsXer.updateInfo(`Ratelimited. Waiting ${sleeptime} seconds. ${TweetsXer.dCount} deleted.`)
+                            await TweetsXer.sleep(1000)
+                        }
+                    }
+                    await TweetsXer.sleep(Math.floor(Math.random() * 200))
+                }
+                else if (response.status == 429 || response.status == 420) {
+                    TweetsXer.tIds.push(TweetsXer.tId)
+                    console.log(`Received status code ${response.status}. Waiting before trying again.`)
+                    let sleeptime = 60 * 5
+                    while (sleeptime > 0) {
+                        sleeptime--
+                        TweetsXer.updateInfo(`Ratelimited. Waiting ${sleeptime} seconds. ${TweetsXer.dCount} deleted.`)
+                        await TweetsXer.sleep(1000)
+                    }
+                }
+                else {
+                    console.log(response)
+                }
+            }
+            this.tId = ''
+            this.updateProgressBar()
+        },
+
+        async getTweetCount() {
+            await waitForElemToExist('header')
+            await TweetsXer.sleep(1000)
+            if (!document.querySelector('[data-testid="UserName"]')) {
+                if (document.querySelector('[aria-label="Back"]')) {
+                    await TweetsXer.sleep(200)
+                    document.querySelector('[aria-label="Back"]').click()
+                    await TweetsXer.sleep(1000)
+                }
+                else if (document.querySelector('[data-testid="app-bar-back"]')) {
+                    document.querySelector('[data-testid="app-bar-back"]').click()
+                    await TweetsXer.sleep(1000)
+                }
+
+                if (document.querySelector('[data-testid="AppTabBar_Profile_Link"]')) {
+                    await TweetsXer.sleep(200)
+                    document.querySelector('[data-testid="AppTabBar_Profile_Link"]').click()
+                }
+                else if (document.querySelector('[data-testid="DashButton_ProfileIcon_Link"]')) {
+                    await TweetsXer.sleep(100)
+                    document.querySelector('[data-testid="DashButton_ProfileIcon_Link"]').click()
+                    await TweetsXer.sleep(1000)
+                    document.querySelector('[data-testid="icon"').nextElementSibling.click()
+                }
+
+                await waitForElemToExist('[data-testid="UserName"]')
+            }
+            await TweetsXer.sleep(1000)
+
+            function extractTweetCount(selector) {
+                const element = document.querySelector(selector)
+                if (!element) return null
+
+                const match = element.textContent.match(/((\d|,|\.|K)+) (\w+)$/)
+                if (!match) return null
+
+                return match[1]
+                    .replace(/\.(\d+)K/, '$1'.padEnd(4, '0'))
+                    .replace('K', '000')
+                    .replace(',', '')
+                    .replace('.', '')
+            }
+
+            try {
+                TweetsXer.TweetCount = extractTweetCount('[data-testid="primaryColumn"]>div>div>div')
+
+                if (!TweetsXer.TweetCount) {
+                    TweetsXer.TweetCount = extractTweetCount('[data-testid="TopNavBar"]>div>div')
+                }
+
+                if (!TweetsXer.TweetCount) {
+                    console.log("Wasn't able to find Tweet count on profile. Setting it to 1 million.")
+                    TweetsXer.TweetCount = 1000000
+                }
+
+            } catch (error) {
+                console.log("Wasn't able to find Tweet count on profile. Setting it to 1 million.")
+                TweetsXer.TweetCount = 1000000
+            }
+            this.updateInfo('Select your tweet-headers.js from your Twitter Data Export to start the deletion.')
+            console.log(TweetsXer.TweetCount + " Tweets on profile.")
+        },
+
+        async slowDelete() {
+            document.getElementById('start').remove()
+            TweetsXer.total = TweetsXer.TweetCount
+            TweetsXer.createProgressBar()
+
+            document.querySelectorAll('[data-testid="ScrollSnap-List"] a')[1].click()
+            await TweetsXer.sleep(2000)
+
+            let unretweet, confirmURT, caret, menu, confirmation
+            let consecutiveErrors = 0
+            const maxConsecutiveErrors = 5
+
+            const more = '[data-testid="tweet"] [data-testid="caret"]'
+            while (document.querySelectorAll(more).length > 0) {
+                await TweetsXer.sleep(1200)
+
+                document.querySelectorAll('section [data-testid="cellInnerDiv"]>div>div>div').forEach(x => x.remove())
+                document.querySelectorAll('section [data-testid="cellInnerDiv"]>div>div>[role="link"]').forEach(x => x.remove())
+                
+                try {
+                    const moreElement = document.querySelector(more)
+                    if (moreElement) {
+                        moreElement.scrollIntoView({ 'behavior': 'smooth' })
+                    }
+
+                    unretweet = document.querySelector('[data-testid="unretweet"]')
+                    if (unretweet) {
+                        unretweet.click()
+                        confirmURT = await waitForElemToExist('[data-testid="unretweetConfirm"]')
+                        confirmURT.click()
+                    }
+                    else {
+                        caret = await waitForElemToExist(more)
+                        caret.click()
+
+                        menu = await waitForElemToExist('[role="menuitem"]')
+                        if (menu.textContent.includes('@')) {
+                            caret.click()
+                            document.querySelector('[data-testid="tweet"]').remove()
+                        } else {
+                            menu.click()
+                            confirmation = await waitForElemToExist('[data-testid="confirmationSheetConfirm"]')
+                            if (confirmation) confirmation.click()
+                        }
+                    }
+
+                    TweetsXer.dCount++
+                    TweetsXer.updateProgressBar()
+                    consecutiveErrors = 0
+
+                    if (TweetsXer.dCount % 100 == 0) console.log(`${new Date().toUTCString()} Deleted ${TweetsXer.dCount} Tweets`)
+                    
+                } catch (error) {
+                    console.error(`Error deleting tweet: ${error.message}`)
+                    consecutiveErrors++
+                    if (consecutiveErrors >= maxConsecutiveErrors) {
+                        console.log(`${consecutiveErrors} consecutive errors. Stopping.`)
+                        break
+                    }
+                }
+            }
+
+            console.log(`Finished. Total deleted: ${TweetsXer.dCount} Tweets. Please reload to confirm.`)
+        },
+
+        async unfollow() {
+            let unfollowCount = 0
+            let next_unfollow, menu
+
+            document.querySelector('[href$="/following"]').click()
+            await TweetsXer.sleep(1200)
+
+            const accounts = '[data-testid="UserCell"]'
+            while (document.querySelectorAll('[data-testid="UserCell"] [data-testid$="-unfollow"]').length > 0) {
+                next_unfollow = document.querySelectorAll(accounts)[0]
+                next_unfollow.scrollIntoView({ 'behavior': 'smooth' })
+
+                next_unfollow.querySelector('[data-testid$="-unfollow"]').click()
+                menu = await waitForElemToExist('[data-testid="confirmationSheetConfirm"]')
+                menu.click()
+                next_unfollow.remove()
+                unfollowCount++
+                if (unfollowCount % 10 == 0) console.log(`${new Date().toUTCString()} Unfollowed ${unfollowCount} accounts`)
+                await TweetsXer.sleep(Math.floor(Math.random() * 200))
+            }
+
+            console.log('No accounts left. Please reload to confirm.')
+        },
+
+        removeTweetXer() {
+            const el = document.getElementById('exportUpload')
+            if (el) el.remove()
+        }
+    }
+
+    const waitForElemToExist = async (selector) => {
+        const elem = document.querySelector(selector)
+        if (elem) return elem
+
+        return new Promise(resolve => {
+            const observer = new MutationObserver(() => {
+                const elem = document.querySelector(selector)
+                if (elem) {
+                    resolve(elem)
+                    observer.disconnect()
+                }
+            })
+
+            observer.observe(document.body, {
+                subtree: true,
+                childList: true,
+            })
+        })
+    }
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => TweetsXer.init())
+    } else {
+        TweetsXer.init()
+    }
+})()
