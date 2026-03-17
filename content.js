@@ -109,7 +109,7 @@
                         || filestart.includes('.direct_message_groups.')) {
                         console.log('File contains Direct Messages.')
                         TweetsXer.action = 'undm'
-                        if (this.deleteDMsOneByOne) {
+                        if (TweetsXer.deleteDMsOneByOne) {
                             TweetsXer.tIds = json.map((c) => c.dmConversation.messages.map((m) => m.messageCreate ? m.messageCreate.id : 0))
                             TweetsXer.tIds = TweetsXer.tIds.flat()
                             TweetsXer.tIds = TweetsXer.tIds.filter((i) => i != 0)
@@ -159,7 +159,7 @@
                         TweetsXer.tIds = TweetsXer.tIds.slice(TweetsXer.skip)
                         TweetsXer.dCount = TweetsXer.skip
                         TweetsXer.tIds.reverse()
-                        if (this.deleteDMsOneByOne) {
+                        if (TweetsXer.deleteDMsOneByOne) {
                             TweetsXer.updateTitle(`TweetXer: Deleting ${TweetsXer.total} DMs`)
                             TweetsXer.deleteDMs()
                         }
@@ -338,7 +338,7 @@
                     console.log(response)
                 }
 
-                if (!response.headers.get('x-rate-limit-remaining') && response.headers.get('x-rate-limit-remaining') < 1) {
+                if (response.headers.get('x-rate-limit-remaining') != null && response.headers.get('x-rate-limit-remaining') < 1) {
                     console.log('rate limit hit')
                     TweetsXer.ratelimitreset = response.headers.get('x-rate-limit-reset')
                     let sleeptime = TweetsXer.ratelimitreset - Math.floor(Date.now() / 1000)
@@ -413,7 +413,7 @@
                     }
 
                 } catch (error) {
-                    if (error.Name === 'AbortError') {
+                    if (error.name === 'AbortError') {
                         TweetsXer.tIds.push(TweetsXer.tId)
                         console.log('Request timeout.')
                         let sleeptime = 15
@@ -538,7 +538,7 @@
                     await TweetsXer.sleep(100)
                     document.querySelector('[data-testid="DashButton_ProfileIcon_Link"]').click()
                     await TweetsXer.sleep(1000)
-                    document.querySelector('[data-testid="icon"').nextElementSibling.click()
+                    document.querySelector('[data-testid="icon"]').nextElementSibling.click()
                 }
 
                 await waitForElemToExist('[data-testid="UserName"]')
