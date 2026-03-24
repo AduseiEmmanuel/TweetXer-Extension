@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
+          fi
+
+          # Write changelog to file for multiline support
+          {
+            echo "CHANGELOG<<EOF"
+            echo "## Changes in ${{ steps.get_version.outputs.VERSION }}"
+            echo ""
+            echo "$COMMITS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Package extension
+        run: |
+          zip -r tweetxer-extension-${{ steps.get_version.outputs.VERSION }}.zip \
+            manifest.json \
+            content.js \
+            popup.html \
+            popup.js \
+            icons/ \
+            README.md \
+            --exclude "*.DS_Store"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: TweetXer ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
+            ## Installation
+
+            1. Download `tweetxer-extension-${{ steps.get_version.outputs.VERSION }}.zip`
+            2. Extract the ZIP file
+            3. Open Chrome → `chrome://extensions/`
+            4. Enable **Developer Mode**
+            5. Click **Load unpacked** and select the extracted folder
+
+            Or wait for the Chrome Web Store release.
+          draft: false
+          prerelease: false
+          files: tweetxer-extension-${{ steps.get_version.outputs.VERSION }}.zip
