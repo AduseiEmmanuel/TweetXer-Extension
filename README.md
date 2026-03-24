@@ -1,139 +1,156 @@
-# 🗑️ TweetXer - Chrome Extension
+# 🗑️ TweetXer — Chrome Extension
 
-Delete all your Tweets, Likes, DMs, and more for free. This is a Chrome extension version of the popular TweetXer userscript.
+> Delete all your Tweets, Likes, DMs, and more — for free, directly in your browser.
 
-## Features
+TweetXer is a Chrome Extension based on the popular [TweetXer userscript](https://github.com/lucahammer/tweetXer/). No third-party service. No account access required beyond your own Twitter/X login.
 
-- ✅ **Delete Tweets** - Fast deletion with data export (10,000-20,000/hour)
-- ✅ **Delete Likes/Favorites** - Remove all your likes (~500 per 15 min)
-- ✅ **Delete Direct Messages** - Clear all DM conversations (~800 per 15 min)
-- ✅ **Export Bookmarks** - Save your bookmarks (not in official export)
-- ✅ **Unfollow Everyone** - Fresh start by unfollowing all accounts
-- ✅ **Slow Delete Mode** - Delete without data export file (~4,000/hour)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](CHANGELOG.md)
+[![License](https://img.shields.io/badge/license-NoHarm--draft-green)](#license)
+[![Chrome](https://img.shields.io/badge/browser-Chrome%2088%2B-orange)](#system-requirements)
 
-## Installation
+---
 
-### Step 1: Download the Extension
+## ✨ Features
 
-1. Download or clone this folder to your computer
-2. Make note of the folder location
+| Feature | Description | Speed |
+|---|---|---|
+| 🗑️ **Delete Tweets** | Bulk delete using your data export | 10,000–20,000 / hour |
+| 💔 **Delete Likes** | Remove all your liked tweets | ~500 per 15 min |
+| 💬 **Delete DMs** | Clear all direct message conversations | ~800 per 15 min |
+| 🔖 **Export Bookmarks** | Save bookmarks to JSON (not in official export) | Varies |
+| 👋 **Unfollow Everyone** | Unfollow all accounts for a fresh start | Rate limited |
+| 🐢 **Slow Delete** | Delete tweets without a data export file | ~4,000 / hour |
 
-### Step 2: Load in Chrome
+**All operations run entirely in your browser. No data is sent to any third-party server.**
 
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in top right corner)
-3. Click **Load unpacked**
-4. Select the `TweetXer-Extension` folder
-5. The extension is now installed!
+---
 
-### Step 3: (Optional) Add Icons
+## 🚀 Quick Start
 
-1. Open `generate-icons.html` in your browser
-2. Click "Download All" to get the icon files
-3. Save them to the `icons` folder
-4. Add icon references back to `manifest.json` if desired
+1. **Download** this repository ([ZIP](https://github.com/AduseiEmmanuel/TweetXer-Extension/archive/refs/heads/main.zip) or `git clone`)
+2. Open Chrome → `chrome://extensions/` → enable **Developer mode**
+3. Click **Load unpacked** and select the `TweetXer-Extension` folder
+4. Go to [x.com](https://x.com), log in, and navigate to your profile
+5. The **TweetXer panel** appears at the top of the page — you're ready to go!
 
-## How to Use
+📘 Full installation steps: **[INSTALLATION.md](INSTALLATION.md)**
 
-### Method 1: With Data Export (Recommended - Fastest)
+---
 
-1. **Request your Twitter/X data export:**
-   - Go to Settings → Your Account → Download an archive of your data
-   - Wait for the email from Twitter/X (can take 24+ hours)
-   - Download and extract the ZIP file
+## 📖 Documentation
 
-2. **Go to X/Twitter:**
-   - Navigate to [x.com](https://x.com) and log in
-   - Go to your profile page
+| Document | Description |
+|---|---|
+| [INSTALLATION.md](INSTALLATION.md) | Step-by-step setup, troubleshooting, system requirements |
+| [USAGE.md](USAGE.md) | Complete user guide for all features |
+| [CHANGELOG.md](CHANGELOG.md) | Version history, known limitations, roadmap |
 
-3. **Use TweetXer:**
-   - The TweetXer panel appears at the top of the page
-   - Click "Choose File" and select one of these files from your data export:
-     - `tweet-headers.js` - To delete tweets
-     - `like.js` - To delete likes
-     - `direct-message-headers.js` - To delete DMs
-   - Watch the progress bar as items are deleted!
+---
 
-### Method 2: Without Data Export (Slower)
+## 🔑 How to Use (Overview)
 
-1. Go to [x.com](https://x.com) and navigate to your profile
-2. Click "Advanced Options" in the TweetXer panel
-3. Click "Slow Delete" button
-4. The extension will automatically scroll through and delete your tweets
+### With Data Export — Fastest Method
 
-### Export Bookmarks
+1. Request your data archive: **Settings → Your Account → Download an archive of your data**
+2. Wait for the email from Twitter/X (up to 24–48 hours), then extract the ZIP
+3. On your X/Twitter profile page, use the TweetXer panel to upload the relevant file:
+   - `data/tweet-headers.js` → Delete Tweets
+   - `data/like.js` → Delete Likes
+   - `data/direct-message-headers.js` → Delete DMs
+4. Click the action button and watch the progress bar
+
+### Without Data Export — Slow Delete
 
 1. Go to your profile on X/Twitter
-2. Click "Advanced Options" in the TweetXer panel
-3. Click "Export Bookmarks"
-4. Download the generated JSON file
+2. Open **Advanced Options** in the TweetXer panel
+3. Click **Slow Delete**
 
-### Unfollow Everyone
+See **[USAGE.md](USAGE.md)** for full walkthroughs of every feature.
 
-1. Go to your profile on X/Twitter
-2. Click "Advanced Options" in the TweetXer panel
-3. Click "Unfollow All"
-4. The extension will unfollow each account
+---
 
-## Rate Limits
+## ⚡ Rate Limits
 
-Twitter/X has rate limits. If you hit them, the extension will automatically wait and resume:
+TweetXer automatically handles Twitter/X rate limits. When a limit is hit, a countdown timer appears and the extension resumes automatically.
 
-| Action | Rate Limit |
-|--------|------------|
-| Delete Tweets (with export) | ~10,000-20,000/hour |
-| Delete Tweets (slow mode) | ~4,000/hour |
+| Action | Approximate Limit |
+|---|---|
+| Delete Tweets (with export) | 10,000–20,000 / hour |
+| Delete Tweets (slow mode) | ~4,000 / hour |
 | Delete Likes | ~500 per 15 minutes |
 | Delete DMs | ~800 per 15 minutes |
 
-## Troubleshooting
+---
 
-### Panel doesn't appear
-- Make sure you're logged into Twitter/X
-- Try refreshing the page
-- Navigate to your profile page
+## ❓ FAQ
 
-### "File content not recognized"
-- Make sure you're using files from the official Twitter/X data export
-- The file should be a `.js` file (e.g., `tweet-headers.js`)
+**Is TweetXer free?**
+Yes. TweetXer is free and open source.
 
-### Rate limit errors
-- The extension handles this automatically
-- Just wait for the countdown timer to finish
+**Does TweetXer store my data or password?**
+No. It runs in your browser using your existing Twitter/X login session. Nothing is sent to any external server.
 
-### Extension not working
-- Check the browser console (F12) for errors
-- Make sure the extension is enabled in `chrome://extensions/`
-- Try reloading the extension
+**Can I stop and resume a deletion?**
+Yes. Use the **Skip Count** option in Advanced Options to skip items already processed.
 
-## Privacy
+**What browsers are supported?**
+Google Chrome 88+ and any Chromium-based browser (Edge, Brave, Opera).
 
-This extension:
-- ✅ Runs entirely in your browser
+**Will this get my account banned?**
+TweetXer respects Twitter/X rate limits. However, deleting large amounts of content is unusual activity — use it responsibly.
+
+---
+
+## 🔒 Privacy
+
+- ✅ Runs **entirely in your browser**
 - ✅ Uses your existing Twitter/X login
-- ✅ Does NOT send data to any third party
-- ✅ Does NOT store your credentials
+- ✅ **Does NOT** send data to any third party
+- ✅ **Does NOT** store your credentials
+- ✅ No analytics, no tracking
 
-## Credits
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Make your changes
+4. Commit: `git commit -m "Add my feature"`
+5. Push: `git push origin feature/my-feature`
+6. Open a Pull Request
+
+Please open an [Issue](https://github.com/AduseiEmmanuel/TweetXer-Extension/issues) first to discuss significant changes.
+
+---
+
+## 👏 Credits
 
 **Chrome Extension Conversion by:** HOPESON
 
 Based on the [TweetXer userscript](https://github.com/lucahammer/tweetXer/) by:
-- Luca Hammer
+- [Luca Hammer](https://github.com/lucahammer)
 - dbort
 - pReya
 - Micolithe
 - STrRedWolf
 
-## License
+---
 
-NoHarm-draft License - See original project for details.
+## 📄 License
 
-## Support
-
-For issues and questions:
-- [GitHub Issues](https://github.com/lucahammer/tweetXer/issues)
+NoHarm-draft License — see the [original project](https://github.com/lucahammer/tweetXer/) for full license details.
 
 ---
 
-**⚠️ Warning:** Deleting tweets is permanent. Make sure you have a backup of any tweets you want to keep before using this tool.
+## 🐛 Support
+
+- [Open an Issue](https://github.com/AduseiEmmanuel/TweetXer-Extension/issues)
+- See [INSTALLATION.md](INSTALLATION.md) for installation troubleshooting
+- See [USAGE.md](USAGE.md) for usage troubleshooting
+
+---
+
+> ⚠️ **Warning:** Deletions are **permanent**. Always download and keep your data export before deleting anything.
