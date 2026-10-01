@@ -4,10 +4,6 @@
   "version": "1.0.0",
   "description": "Delete all your Tweets, Likes, DMs, and more for free. Chrome extension by HOPESON, based on TweetXer userscript.",
   "author": "HOPESON (Chrome Extension), Original: Luca, dbort, pReya, Micolithe, STrRedWolf",
-  "permissions": [
-    "activeTab",
-    "storage"
-  ],
   "host_permissions": [
     "https://x.com/*",
     "https://mobile.x.com/*",
